@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TripMeter — Know Your Cost Before You Go</title>
+<meta name="description" content="Calculate car mileage, trip fuel cost, and get personalized tips to improve your average. Built for Pakistani drivers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ========================================================
+   TripMeter — Design Tokens
+   Theme: instrument cluster / dashboard gauge aesthetic
+   ======================================================== */
+:root{
+  --bg: #14171C;
+  --surface: #1B1F26;
+  --surface-2: #232830;
+  --border: #2E343D;
+  --accent: #FF6B35;
+  --accent-dim: #B54F27;
+  --accent-2: #3DDC97;
+  --danger: #E5484D;
+  --warn: #E8B93D;
+  --text: #E8EAED;
+  --text-muted: #8B929B;
+  --text-faint: #565D68;
+
+  --font-display: 'Rajdhani', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+*, *::before, *::after{ box-sizing: border-box; }
+html{ scroll-behavior: smooth; }
+body{
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3{
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+p{ margin: 0; }
+a{ color: inherit; text-decoration: none; }
+[data-mono], .num, .mono{ font-family: var(--font-mono); }
+
+:focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.accent{ color: var(--accent); }
+
+.eyebrow{
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* ===== Layout helpers ===== */
+main{ max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+.grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+@media (max-width: 860px){ .grid-2{ grid-template-columns: 1fr; } }
+
+/* ===== Tick divider — reads like a gauge's tick marks, marks section breaks ===== */
+.ticks{
+  height: 28px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 28px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--border) 0, var(--border) 1px,
+    transparent 1px, transparent 24px
+  );
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: calc(100% - 56px) 1px;
+}
+
+/* ===== Nav ===== */
+.nav{
+  position: sticky; top:0; z-index: 50;
+  background: rgba(20,23,28,0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner{
+  max-width: 1180px; margin: 0 auto; padding: 16px 28px;
+  display:flex; align-items:center; justify-content: space-between;
+}
+.brand{ display:flex; align-items:center; gap:8px; }
+.brand-mark{ color: var(--accent); font-size: 1.1rem; }
+.brand-text{
+  font-family: var(--font-display); font-weight: 700;
+  letter-spacing: 0.06em; font-size: 1.15rem;
+}
+.nav-links{ display:flex; gap: 26px; }
+.nav-links a{
+  font-size: 0.88rem; color: var(--text-muted);
+  transition: color .15s ease;
+}
+.nav-links a:hover{ color: var(--text); }
+@media (max-width: 700px){ .nav-links{ display:none; } }
+
+/* ===== Buttons ===== */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding: 13px 22px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform .12s ease, background .15s ease, border-color .15s ease;
+}
+.btn:active{ transform: scale(0.98); }
+.btn-primary{ background: var(--accent); color: #1A1006; }
+.btn-primary:hover{ background: #FF7D4D; }
+.btn-ghost{ background: transparent; color: var(--text); border-color: var(--border); }
+.btn-ghost:hover{ border-color: var(--accent); color: var(--accent); }
+.btn-danger{ background: transparent; color: var(--danger); border-color: rgba(229,72,77,0.4); }
+.btn-danger:hover{ background: rgba(229,72,77,0.1); }
+.btn-block{ width: 100%; margin-top: 6px; }
+.btn-sm{ padding: 9px 14px; font-size: 0.8rem; }
+
+/* ===== Hero ===== */
+.hero{ padding: 64px 28px 20px; max-width: 1180px; margin: 0 auto; }
+.hero-grid{ display:grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; }
+@media (max-width: 900px){ .hero-grid{ grid-template-columns: 1fr; } }
+
+.hero-copy h1{
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  line-height: 1.05;
+  margin: 14px 0 20px;
+}
+.hero-sub{ color: var(--text-muted); font-size: 1.05rem; max-width: 46ch; margin-bottom: 28px; }
+.hero-actions{ display:flex; gap: 14px; flex-wrap: wrap; margin-bottom: 40px; }
+.hero-stats{ display:flex; gap: 34px; flex-wrap: wrap; }
+.hero-stats > div{ display:flex; flex-direction: column; }
+.hero-stats .num{ font-size: 1.5rem; font-weight: 700; color: var(--accent-2); }
+.hero-stats .label{ font-size: 0.78rem; color: var(--text-faint); max-width: 14ch; }
+
+.hero-gauge{ display:flex; flex-direction:column; align-items:center; gap: 14px; }
+.gauge-caption{ font-size: 0.78rem; color: var(--text-faint); text-align:center; max-width: 26ch; }
+
+/* ===== Gauge (SVG built in JS) ===== */
+.gauge-wrap{ width: 280px; max-width: 100%; }
+.gauge-wrap-sm{ width: 220px; margin: 0 auto 18px; }
+.gauge-value{ font-family: var(--font-mono); font-weight: 700; }
+.gauge-tier-excellent{ fill: var(--accent-2); }
+.gauge-tier-good{ fill: var(--text); }
+.gauge-tier-below{ fill: var(--warn); }
+.gauge-tier-poor{ fill: var(--danger); }
+
+/* ===== Panels ===== */
+.panel{ padding: 56px 0; }
+.panel-head{ max-width: 640px; margin-bottom: 32px; }
+.panel-head h2{ font-size: clamp(1.6rem, 3vw, 2.1rem); margin-bottom: 10px; }
+.panel-sub{ color: var(--text-muted); }
+
+/* ===== Cards / Forms ===== */
+.card{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+}
+.form-card{ display:flex; flex-direction: column; }
+.field{ display:flex; flex-direction: column; margin-bottom: 16px; }
+.field-row{ display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field label{ font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; }
+.field input, .field select{
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  width: 100%;
+}
+.field input::placeholder{ color: var(--text-faint); }
+.field input:focus, .field select:focus{ border-color: var(--accent); }
+.field select{ font-family: var(--font-body); }
+
+.result-card{ display:flex; flex-direction:column; justify-content:center; min-height: 100%; }
+.result-text{ font-size: 0.95rem; }
+.empty-state{ color: var(--text-faint); font-size: 0.9rem; }
+
+.result-headline{ font-size: 1.05rem; margin-bottom: 6px; }
+.result-figure{ font-family: var(--font-mono); font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+.result-figure small{ font-family: var(--font-body); font-size: 0.9rem; color: var(--text-muted); font-weight: 400; }
+.result-row{ display:flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+.result-row:last-child{ border-bottom: none; }
+.result-row span:first-child{ color: var(--text-muted); font-size: 0.88rem; }
+.result-row span:last-child{ font-family: var(--font-mono); font-weight: 600; }
+
+.tier-badge{
+  display:inline-block; padding: 4px 10px; border-radius: 20px;
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em;
+  text-transform: uppercase; margin-bottom: 14px;
+}
+.tier-excellent{ background: rgba(61,220,151,0.14); color: var(--accent-2); }
+.tier-good{ background: rgba(232,234,237,0.1); color: var(--text); }
+.tier-below{ background: rgba(232,185,61,0.14); color: var(--warn); }
+.tier-poor{ background: rgba(229,72,77,0.14); color: var(--danger); }
+
+.tip-line{
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+  font-size: 0.88rem; color: var(--text-muted);
+}
+.tip-line strong{ color: var(--text); }
+
+/* ===== Garage ===== */
+.garage-card{ min-height: 100%; }
+.garage-head{ display:flex; justify-content: space-between; align-items:center; margin-bottom: 16px; }
+.garage-head h3{ font-size: 1.05rem; }
+.count-pill{
+  font-family: var(--font-mono); font-size: 0.72rem;
+  background: var(--surface-2); border: 1px solid var(--border);
+  padding: 4px 10px; border-radius: 20px; color: var(--text-muted);
+}
+.garage-list{ display:flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y:auto; }
+.car-item{
+  display:flex; justify-content: space-between; align-items:center;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+}
+.car-item-info{ display:flex; flex-direction: column; }
+.car-item-name{ font-weight: 600; font-size: 0.94rem; }
+.car-item-meta{ font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); }
+.car-item-avg{ font-family: var(--font-mono); color: var(--accent-2); font-size: 0.85rem; margin-top: 2px; }
+.car-item-del{
+  background: none; border: none; color: var(--text-faint);
+  cursor: pointer; font-size: 1.1rem; padding: 4px 8px; border-radius: 4px;
+}
+.car-item-del:hover{ color: var(--danger); background: rgba(229,72,77,0.1); }
+
+/* ===== Compare ===== */
+.compare-card{ padding: 26px; }
+.compare-picker{ display:flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.compare-chip{
+  display:flex; align-items:center; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  padding: 9px 14px; border-radius: 20px; cursor: pointer; font-size: 0.88rem;
+  transition: border-color .15s ease;
+}
+.compare-chip input{ accent-color: var(--accent); }
+.compare-chip.checked{ border-color: var(--accent); color: var(--accent); }
+.compare-inputs{ grid-template-columns: 1fr 1fr auto; align-items: end; gap: 14px; }
+.compare-inputs .field{ margin-bottom: 0; }
+.field-btn{ min-width: 140px; }
+@media (max-width: 700px){ .compare-inputs{ grid-template-columns: 1fr; } }
+
+.compare-results{ margin-top: 24px; display:flex; flex-direction: column; gap: 12px; }
+.compare-row{
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 16px 18px;
+}
+.compare-row.cheapest{ border-color: var(--accent-2); }
+.compare-row-top{ display:flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.compare-row-name{ font-weight: 600; }
+.compare-row-name .best-tag{
+  font-family: var(--font-mono); font-size: 0.68rem; color: var(--accent-2);
+  border: 1px solid var(--accent-2); padding: 2px 8px; border-radius: 10px; margin-left: 8px;
+}
+.compare-row-cost{ font-family: var(--font-mono); font-weight: 700; color: var(--accent); font-size: 1.15rem; }
+.compare-bar-track{ height: 8px; background: var(--surface); border-radius: 4px; overflow: hidden; }
+.compare-bar-fill{ height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s ease; }
+.compare-row.cheapest .compare-bar-fill{ background: var(--accent-2); }
+.compare-row-meta{ font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; }
+
+/* ===== History ===== */
+.history-card{ padding: 22px 26px; }
+.history-toolbar{ display:flex; justify-content: space-between; align-items:center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+.history-actions{ display:flex; gap: 10px; }
+.table-wrap{ overflow-x: auto; }
+table{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+thead th{
+  text-align: left; padding: 10px 12px; color: var(--text-muted);
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.05em;
+  text-transform: uppercase; border-bottom: 1px solid var(--border);
+}
+tbody td{ padding: 12px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); }
+tbody td:first-child, tbody td:nth-child(2){ font-family: var(--font-body); }
+tbody tr:last-child td{ border-bottom: none; }
+.history-del{
+  background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 1rem;
+}
+.history-del:hover{ color: var(--danger); }
+
+/* ===== Tips grid ===== */
+.tips-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 900px){ .tips-grid{ grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px){ .tips-grid{ grid-template-columns: 1fr; } }
+.tip-card{ display:flex; flex-direction: column; gap: 10px; }
+.tip-icon{ font-size: 1.3rem; color: var(--accent); }
+.tip-card h3{ font-size: 1.02rem; }
+.tip-card p{ color: var(--text-muted); font-size: 0.9rem; }
+
+/* ===== Footer ===== */
+.site-footer{ border-top: 1px solid var(--border); margin-top: 40px; padding: 40px 28px; }
+.footer-inner{
+  max-width: 1180px; margin: 0 auto;
+  display:flex; align-items:center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+.footer-brand{ display:flex; align-items:center; gap: 8px; }
+.footer-credit{ color: var(--text-muted); font-size: 0.9rem; }
+.footer-credit strong{ color: var(--text); }
+.linkedin-btn{
+  display:inline-flex; align-items:center; gap: 8px;
+  border: 1px solid var(--border); padding: 9px 16px; border-radius: 20px;
+  font-size: 0.85rem; transition: border-color .15s ease, color .15s ease;
+}
+.linkedin-btn:hover{ border-color: var(--accent); color: var(--accent); }
+
+@media (max-width: 600px){
+  .footer-inner{ flex-direction: column; text-align:center; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<header class="nav">
+  <div class="nav-inner">
+    <a href="#top" class="brand">
+      <span class="brand-mark">◉</span>
+      <span class="brand-text">TRIP<span class="accent">METER</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#profiles">Cars</a>
+      <a href="#average">Average</a>
+      <a href="#trip">Trip Cost</a>
+      <a href="#compare">Compare</a>
+      <a href="#history">History</a>
+      <a href="#tips">Tips</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">FUEL &amp; MILEAGE INSTRUMENT</p>
+        <h1>Know the cost<br>before you turn<br>the key.</h1>
+        <p class="hero-sub">Log your odometer readings, get your real average, and see exactly what your next trip will cost — in rupees, not guesses. Plus tips tuned to your exact car.</p>
+        <div class="hero-actions">
+          <a href="#average" class="btn btn-primary">Calculate My Average</a>
+          <a href="#trip" class="btn btn-ghost">Plan a Trip</a>
+        </div>
+        <div class="hero-stats">
+          <div><span class="num" data-mono>150+</span><span class="label">PKR saved / tank on avg</span></div>
+          <div><span class="num" data-mono>4</span><span class="label">car types supported</span></div>
+          <div><span class="num" data-mono>3</span><span class="label">fuel types tracked</span></div>
+        </div>
+      </div>
+      <div class="hero-gauge">
+        <div id="heroGauge" class="gauge-wrap"></div>
+        <p class="gauge-caption">Live demo — this needle moves as real users calculate below</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticks" aria-hidden="true"></div>
+
+  <!-- ===== CAR PROFILES ===== -->
+  <section class="panel" id="profiles">
+    <div class="panel-head">
+      <p class="eyebrow">01 — GARAGE</p>
+      <h2>Add your car</h2>
+      <p class="panel-sub">Save each car's profile once. Reuse it in the calculators and comparisons below.</p>
+    </div>
+
+    <div class="grid-2">
+      <form class="card form-card" id="carForm">
+        <div class="field">
+          <label for="carName">Car name</label>
+          <input type="text" id="carName" placeholder="e.g. Suzuki Cultus 2021" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="carType">Type</label>
+            <select id="carType" required>
+              <option value="hatchback">Hatchback</option>
+              <option value="sedan">Sedan</option>
+              <option value="suv">SUV / Crossover</option>
+              <option value="bike">Bike</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="carCC">Engine (cc)</label>
+            <input type="number" id="carCC" placeholder="1000" min="50" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="carFuel">Fuel type</label>
+          <select id="carFuel" required>
+            <option value="petrol">Petrol</option>
+            <option value="diesel">Diesel</option>
+            <option value="cng">CNG</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Save Car to Garage</button>
+      </form>
+
+      <div class="card garage-card">
+        <div class="garage-head">
+          <h3>Your Garage</h3>
+          <span class="count-pill" id="carCount">0 cars</span>
+        </div>
+        <div id="garageList" class="garage-list">
+          <p class="empty-state">No cars yet. Add one on the left — it'll show up here instantly.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticks" aria-hidden="true"></div>
+
+  <!-- ===== AVERAGE CALCULATOR ===== -->
+  <section class="panel" id="average">
+    <div class="panel-head">
+      <p class="eyebrow">02 — INSTRUMENT READING</p>
+      <h2>Calculate your real average</h2>
+      <p class="panel-sub">Enter your odometer readings and how much fuel you filled. No estimates — your dashboard number, calculated properly.</p>
+    </div>
+
+    <div class="grid-2">
+      <form class="card form-card" id="avgForm">
+        <div class="field">
+          <label for="avgCarSelect">Apply to car (optional)</label>
+          <select id="avgCarSelect">
+            <option value="">— Quick calculation, don't save —</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="odoStart">Odometer start (km)</label>
+            <input type="number" id="odoStart" placeholder="12,400" min="0" required>
+          </div>
+          <div class="field">
+            <label for="odoEnd">Odometer end (km)</label>
+            <input type="number" id="odoEnd" placeholder="12,830" min="0" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="fuelFilled">Fuel filled (liters, or kg for CNG)</label>
+          <input type="number" id="fuelFilled" placeholder="30" min="0.1" step="0.1" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Calculate Average</button>
+      </form>
+
+      <div class="card result-card">
+        <div id="avgGauge" class="gauge-wrap gauge-wrap-sm"></div>
+        <div id="avgResultText" class="result-text">
+          <p class="empty-state">Fill the form to see your average and how it compares to expected mileage for your car type.</p>
+        </div>
+        <button type="button" id="saveAvgBtn" class="btn btn-ghost btn-block" style="display:none;">Save This Average to Selected Car</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticks" aria-hidden="true"></div>
+
+  <!-- ===== TRIP COST CALCULATOR ===== -->
+  <section class="panel" id="trip">
+    <div class="panel-head">
+      <p class="eyebrow">03 — TRIP METER</p>
+      <h2>What will this trip cost?</h2>
+      <p class="panel-sub">Pick a saved car or enter an average manually. Add your trip distance and today's fuel price.</p>
+    </div>
+
+    <div class="grid-2">
+      <form class="card form-card" id="tripForm">
+        <div class="field">
+          <label for="tripCarSelect">Car</label>
+          <select id="tripCarSelect">
+            <option value="">Manual entry (no saved car)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="tripAverage">Average (km/l or km/kg)</label>
+          <input type="number" id="tripAverage" placeholder="14" min="1" step="0.1" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="tripDistance">Trip distance (km)</label>
+            <input type="number" id="tripDistance" placeholder="250" min="1" required>
+          </div>
+          <div class="field">
+            <label for="tripPrice">Fuel price (PKR / liter or kg)</label>
+            <input type="number" id="tripPrice" placeholder="272" min="1" step="0.1" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Calculate Trip Cost</button>
+      </form>
+
+      <div class="card result-card">
+        <div id="tripResultText" class="result-text">
+          <p class="empty-state">Your fuel needed, total cost, and a matching tip will appear here.</p>
+        </div>
+        <button type="button" id="logTripBtn" class="btn btn-ghost btn-block" style="display:none;">Log This Trip to History</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticks" aria-hidden="true"></div>
+
+  <!-- ===== COMPARISON MODE ===== -->
+  <section class="panel" id="compare">
+    <div class="panel-head">
+      <p class="eyebrow">04 — SIDE BY SIDE</p>
+      <h2>Compare 2–3 cars for the same trip</h2>
+      <p class="panel-sub">Select cars from your garage, set one distance and one fuel price, and see which one actually costs less.</p>
+    </div>
+
+    <div class="card compare-card">
+      <div class="compare-controls">
+        <div id="compareCarPicker" class="compare-picker">
+          <p class="empty-state">Add at least 2 cars to your garage above to unlock comparison.</p>
+        </div>
+        <div class="field-row compare-inputs">
+          <div class="field">
+            <label for="compDistance">Trip distance (km)</label>
+            <input type="number" id="compDistance" placeholder="250" min="1">
+          </div>
+          <div class="field">
+            <label for="compPrice">Fuel price (PKR)</label>
+            <input type="number" id="compPrice" placeholder="272" min="1" step="0.1">
+          </div>
+          <div class="field field-btn">
+            <button type="button" id="compareBtn" class="btn btn-primary btn-block">Compare</button>
+          </div>
+        </div>
+      </div>
+      <div id="compareResults" class="compare-results"></div>
+    </div>
+  </section>
+
+  <div class="ticks" aria-hidden="true"></div>
+
+  <!-- ===== TRIP HISTORY ===== -->
+  <section class="panel" id="history">
+    <div class="panel-head">
+      <p class="eyebrow">05 — LOGBOOK</p>
+      <h2>Trip history</h2>
+      <p class="panel-sub">Every trip you log is saved in this browser so you can track spending over time.</p>
+    </div>
+
+    <div class="card history-card">
+      <div class="history-toolbar">
+        <span id="historyCount" class="count-pill">0 trips logged</span>
+        <div class="history-actions">
+          <button type="button" id="exportCsvBtn" class="btn btn-ghost btn-sm">Export .CSV</button>
+          <button type="button" id="exportTxtBtn" class="btn btn-ghost btn-sm">Export .TXT</button>
+          <button type="button" id="clearHistoryBtn" class="btn btn-danger btn-sm">Clear All</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="historyTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Car</th>
+              <th>Distance</th>
+              <th>Average</th>
+              <th>Fuel Used</th>
+              <th>Cost</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="7" class="empty-state">No trips logged yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticks" aria-hidden="true"></div>
+
+  <!-- ===== TIPS LIBRARY ===== -->
+  <section class="panel" id="tips">
+    <div class="panel-head">
+      <p class="eyebrow">06 — REFERENCE</p>
+      <h2>General mileage tips</h2>
+      <p class="panel-sub">Contextual tips appear automatically after you calculate your average. These are the standing rules worth knowing regardless.</p>
+    </div>
+
+    <div class="tips-grid">
+      <div class="card tip-card">
+        <span class="tip-icon">◐</span>
+        <h3>Tire Pressure</h3>
+        <p>Under-inflated tires are the single most common mileage killer. Check pressure monthly, cold, against the sticker inside your door frame — not the tire's max rating.</p>
+      </div>
+      <div class="card tip-card">
+        <span class="tip-icon">◑</span>
+        <h3>Driving Style</h3>
+        <p>Hard acceleration and late braking cost more fuel than almost any mechanical issue. Anticipate traffic, roll off the throttle early, and keep RPMs in the efficient mid-range.</p>
+      </div>
+      <div class="card tip-card">
+        <span class="tip-icon">◒</span>
+        <h3>Idling &amp; AC</h3>
+        <p>Long idling at signals burns fuel for zero distance. AC on the highway costs less than open windows at speed — but AC at idle adds up fast in city traffic.</p>
+      </div>
+      <div class="card tip-card">
+        <span class="tip-icon">◓</span>
+        <h3>Weight &amp; Load</h3>
+        <p>Every extra 50kg you carry costs measurable mileage, especially on hatchbacks and bikes. Clear out the boot of anything you don't need for the trip.</p>
+      </div>
+      <div class="card tip-card">
+        <span class="tip-icon">◔</span>
+        <h3>Servicing</h3>
+        <p>A clogged air filter, worn spark plugs, or old engine oil can quietly cost you 10–15% average. Stick to your service interval even if the car "feels fine."</p>
+      </div>
+      <div class="card tip-card">
+        <span class="tip-icon">◕</span>
+        <h3>Fuel Quality</h3>
+        <p>Stick to filling stations you trust. Inconsistent octane or contaminated fuel shows up as an average that swings for no clear reason.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="brand-mark">◉</span>
+      <span class="brand-text">TRIP<span class="accent">METER</span></span>
+    </div>
+    <p class="footer-credit">
+      Developed by <strong>Muhammad Ahmad</strong>
+    </p>
+    <a class="linkedin-btn" href="https://www.linkedin.com/in/muhammad-ahmad2730/" target="_blank" rel="noopener noreferrer">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.38-1.85 3.61 0 4.28 2.38 4.28 5.47v6.27zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg>
+      <span>Muhammad Ahmad | LinkedIn</span>
+    </a>
+  </div>
+</footer>
+
+<script>
+/* ========================================================
+   TripMeter — Application Logic
+   Vanilla JS, no dependencies. Data persists via localStorage.
+   ======================================================== */
+
+(function(){
+  "use strict";
+
+  /* ---------- Baseline expected averages (km/l, or km/kg for CNG) ---------- */
+  const BASELINES = {
+    hatchback: { petrol: 14, diesel: 18, cng: 18 },
+    sedan:     { petrol: 12, diesel: 16, cng: 16 },
+    suv:       { petrol: 9,  diesel: 13, cng: 12 },
+    bike:      { petrol: 45, diesel: 45, cng: 40 }
+  };
+
+  const TYPE_LABEL = { hatchback: "Hatchback", sedan: "Sedan", suv: "SUV", bike: "Bike" };
+  const FUEL_LABEL = { petrol: "Petrol", diesel: "Diesel", cng: "CNG" };
+
+  /* ---------- Storage ---------- */
+  const STORAGE_CARS = "tripmeter_cars";
+  const STORAGE_HISTORY = "tripmeter_history";
+
+  function loadCars(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_CARS)) || []; }
+    catch(e){ return []; }
+  }
+  function saveCars(cars){ localStorage.setItem(STORAGE_CARS, JSON.stringify(cars)); }
+
+  function loadHistory(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_HISTORY)) || []; }
+    catch(e){ return []; }
+  }
+  function saveHistory(history){ localStorage.setItem(STORAGE_HISTORY, JSON.stringify(history)); }
+
+  let cars = loadCars();
+  let history = loadHistory();
+
+  /* ---------- Tier logic ---------- */
+  function getTier(average, type, fuel){
+    const baseline = (BASELINES[type] && BASELINES[type][fuel]) || 12;
+    const ratio = average / baseline;
+    if (ratio >= 1.1) return { tier: "excellent", label: "Excellent", ratio, baseline };
+    if (ratio >= 0.9) return { tier: "good", label: "Good / As Expected", ratio, baseline };
+    if (ratio >= 0.75) return { tier: "below", label: "Below Average", ratio, baseline };
+    return { tier: "poor", label: "Needs Attention", ratio, baseline };
+  }
+
+  const TIPS = {
+    excellent: {
+      petrol: "You're beating the expected average for this car. Keep tire pressure checks monthly and stick to your service schedule to hold this.",
+      diesel: "Strong average for a diesel this size. Keep an eye on injector servicing intervals so it doesn't slip.",
+      cng: "Excellent CNG efficiency. Keep the cylinder valve and kit serviced yearly to maintain this."
+    },
+    good: {
+      petrol: "You're right in the expected range. Small wins from here: reduce idling time and keep RPMs in the 2000–2500 band on the highway.",
+      diesel: "Solid, expected range for diesel. Check turbo hoses and air filter every service to protect this number.",
+      cng: "Normal CNG range. Cold starts on petrol before switching to CNG can protect the engine and keep this stable."
+    },
+    below: {
+      petrol: "Below what's expected. Start with tire pressure and a fresh air filter — these two alone often recover 5-10%.",
+      diesel: "Below expected for diesel. Have injectors and fuel filter checked; a clogged filter is a common cause here.",
+      cng: "Below expected for CNG. Have the kit's mixture/timing checked — a poorly tuned kit is the most common cause."
+    },
+    poor: {
+      petrol: "Significantly below expected. Get spark plugs, air filter, and wheel alignment checked — this points to a mechanical issue, not just driving habits.",
+      diesel: "Significantly below expected. This usually means injectors, EGR, or fuel filter — worth a proper diagnostic soon.",
+      cng: "Significantly below expected. Have the CNG kit inspected by a specialist — this is rarely a driving-habit issue at this level."
+    }
+  };
+
+  function tipFor(tier, fuel){
+    return (TIPS[tier] && TIPS[tier][fuel]) || TIPS.good.petrol;
+  }
+
+  /* ==========================================================
+     GAUGE — semicircle SVG speedometer-style gauge with needle
+     ========================================================== */
+  function polar(cx, cy, r, angleDeg){
+    const a = (angleDeg - 180) * Math.PI / 180;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  }
+
+  function renderGauge(containerId, value, maxValue, tierClass, unitLabel){
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const cx = 140, cy = 130, r = 105;
+    const pct = Math.max(0, Math.min(1, value / maxValue));
+    const angle = pct * 180; // 0 -> 180 across the semicircle
+
+    // background arc segments (red / amber / green zones)
+    const zones = [
+      { from: 0,   to: 0.55, color: "#E5484D" },
+      { from: 0.55,to: 0.85, color: "#E8B93D" },
+      { from: 0.85,to: 1.15, color: "#3DDC97" }
+    ];
+
+    let arcs = "";
+    zones.forEach(z => {
+      const startA = Math.max(0, z.from) * 180;
+      const endA = Math.min(1.15, z.to) * 180;
+      if (endA <= startA) return;
+      const p1 = polar(cx, cy, r, startA);
+      const p2 = polar(cx, cy, r, endA);
+      const largeArc = (endA - startA) > 180 ? 1 : 0;
+      arcs += `<path d="M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${r} ${r} 0 ${largeArc} 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}"
+                stroke="${z.color}" stroke-width="14" fill="none" stroke-linecap="butt" opacity="0.85"/>`;
+    });
+
+    // tick marks every 15 degrees
+    let ticks = "";
+    for (let a = 0; a <= 180; a += 15){
+      const outer = polar(cx, cy, r + 12, a);
+      const inner = polar(cx, cy, r, a);
+      ticks += `<line x1="${inner.x.toFixed(1)}" y1="${inner.y.toFixed(1)}" x2="${outer.x.toFixed(1)}" y2="${outer.y.toFixed(1)}" stroke="#2E343D" stroke-width="2"/>`;
+    }
+
+    // needle
+    const needleAngle = Math.max(2, Math.min(178, angle));
+    const needleTip = polar(cx, cy, r - 18, needleAngle);
+    const tierColor = { excellent: "#3DDC97", good: "#E8EAED", below: "#E8B93D", poor: "#E5484D" }[tierClass] || "#E8EAED";
+
+    const svg = `
+      <svg viewBox="0 0 280 175" width="100%" xmlns="http://www.w3.org/2000/svg">
+        ${arcs}
+        ${ticks}
+        <circle cx="${cx}" cy="${cy}" r="7" fill="${tierColor}"/>
+        <line x1="${cx}" y1="${cy}" x2="${needleTip.x.toFixed(1)}" y2="${needleTip.y.toFixed(1)}"
+              stroke="${tierColor}" stroke-width="3.5" stroke-linecap="round"/>
+        <text x="${cx}" y="${cy + 38}" text-anchor="middle" class="gauge-value" fill="${tierColor}" font-size="26">${value.toFixed(1)}</text>
+        <text x="${cx}" y="${cy + 58}" text-anchor="middle" fill="#8B929B" font-size="11" font-family="Inter, sans-serif">${unitLabel}</text>
+      </svg>`;
+    container.innerHTML = svg;
+  }
+
+  /* ---------- Hero demo gauge (ambient animation) ---------- */
+  let heroDemoValue = 9;
+  function animateHeroGauge(){
+    renderGauge("heroGauge", heroDemoValue, 20, heroDemoValue > 14 ? "excellent" : heroDemoValue > 11 ? "good" : "below", "km / liter (demo)");
+  }
+  animateHeroGauge();
+  let heroDir = 1;
+  setInterval(() => {
+    heroDemoValue += heroDir * 0.35;
+    if (heroDemoValue > 17 || heroDemoValue < 7) heroDir *= -1;
+    animateHeroGauge();
+  }, 900);
+
+  /* ==========================================================
+     CAR PROFILES (Garage)
+     ========================================================== */
+  const carForm = document.getElementById("carForm");
+  const garageList = document.getElementById("garageList");
+  const carCount = document.getElementById("carCount");
+  const avgCarSelect = document.getElementById("avgCarSelect");
+  const tripCarSelect = document.getElementById("tripCarSelect");
+  const compareCarPicker = document.getElementById("compareCarPicker");
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function renderGarage(){
+    carCount.textContent = cars.length + (cars.length === 1 ? " car" : " cars");
+
+    if (cars.length === 0){
+      garageList.innerHTML = `<p class="empty-state">No cars yet. Add one on the left — it'll show up here instantly.</p>`;
+    } else {
+      garageList.innerHTML = cars.map(c => `
+        <div class="car-item" data-id="${c.id}">
+          <div class="car-item-info">
+            <span class="car-item-name">${escapeHtml(c.name)}</span>
+            <span class="car-item-meta">${TYPE_LABEL[c.type]} · ${c.cc}cc · ${FUEL_LABEL[c.fuel]}</span>
+            ${c.average ? `<span class="car-item-avg">${c.average.toFixed(1)} km/${c.fuel === 'cng' ? 'kg' : 'l'} avg</span>` : ""}
+          </div>
+          <button class="car-item-del" title="Remove car" data-id="${c.id}">✕</button>
+        </div>
+      `).join("");
+    }
+
+    // populate selects
+    const options = cars.map(c => `<option value="${c.id}">${escapeHtml(c.name)} — ${TYPE_LABEL[c.type]}</option>`).join("");
+    avgCarSelect.innerHTML = `<option value="">— Quick calculation, don't save —</option>` + options;
+    tripCarSelect.innerHTML = `<option value="">Manual entry (no saved car)</option>` + options;
+
+    // comparison picker
+    if (cars.length < 2){
+      compareCarPicker.innerHTML = `<p class="empty-state">Add at least 2 cars to your garage above to unlock comparison.</p>`;
+    } else {
+      compareCarPicker.innerHTML = cars.map(c => `
+        <label class="compare-chip" data-id="${c.id}">
+          <input type="checkbox" value="${c.id}">
+          <span>${escapeHtml(c.name)}</span>
+        </label>
+      `).join("");
+    }
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  carForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    const name = document.getElementById("carName").value.trim();
+    const type = document.getElementById("carType").value;
+    const cc = document.getElementById("carCC").value;
+    const fuel = document.getElementById("carFuel").value;
+    if (!name) return;
+
+    cars.push({ id: uid(), name, type, cc, fuel, average: null });
+    saveCars(cars);
+    renderGarage();
+    carForm.reset();
+  });
+
+  garageList.addEventListener("click", function(e){
+    if (e.target.classList.contains("car-item-del")){
+      const id = e.target.getAttribute("data-id");
+      cars = cars.filter(c => c.id !== id);
+      saveCars(cars);
+      renderGarage();
+    }
+  });
+
+  compareCarPicker.addEventListener("change", function(e){
+    const checked = compareCarPicker.querySelectorAll("input:checked");
+    if (checked.length > 3){
+      e.target.checked = false;
+    }
+    compareCarPicker.querySelectorAll(".compare-chip").forEach(chip => {
+      const input = chip.querySelector("input");
+      chip.classList.toggle("checked", input.checked);
+    });
+  });
+
+  /* ==========================================================
+     AVERAGE CALCULATOR
+     ========================================================== */
+  const avgForm = document.getElementById("avgForm");
+  const avgResultText = document.getElementById("avgResultText");
+  const saveAvgBtn = document.getElementById("saveAvgBtn");
+  let lastAvgResult = null;
+
+  avgForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    const carId = avgCarSelect.value;
+    const start = parseFloat(document.getElementById("odoStart").value);
+    const end = parseFloat(document.getElementById("odoEnd").value);
+    const fuel = parseFloat(document.getElementById("fuelFilled").value);
+
+    if (end <= start || fuel <= 0){
+      avgResultText.innerHTML = `<p class="empty-state">Odometer end must be greater than start, and fuel must be positive.</p>`;
+      saveAvgBtn.style.display = "none";
+      return;
+    }
+
+    const distance = end - start;
+    const average = distance / fuel;
+
+    let type = "sedan", fuelType = "petrol", carName = "Quick calculation";
+    if (carId){
+      const car = cars.find(c => c.id === carId);
+      if (car){ type = car.type; fuelType = car.fuel; carName = car.name; }
+    }
+
+    const tierInfo = getTier(average, type, fuelType);
+    const unit = fuelType === "cng" ? "km/kg" : "km/l";
+
+    renderGauge("avgGauge", average, tierInfo.baseline * 1.6, tierInfo.tier, unit);
+
+    avgResultText.innerHTML = `
+      <span class="tier-badge tier-${tierInfo.tier}">${tierInfo.label}</span>
+      <div class="result-figure">${average.toFixed(2)} <small>${unit}</small></div>
+      <div class="result-row"><span>Distance covered</span><span>${distance.toFixed(0)} km</span></div>
+      <div class="result-row"><span>Fuel filled</span><span>${fuel.toFixed(1)} ${fuelType === "cng" ? "kg" : "L"}</span></div>
+      <div class="result-row"><span>Expected baseline (${TYPE_LABEL[type]}, ${FUEL_LABEL[fuelType]})</span><span>${tierInfo.baseline.toFixed(1)} ${unit}</span></div>
+      <div class="tip-line"><strong>Tip:</strong> ${tipFor(tierInfo.tier, fuelType)}</div>
+    `;
+
+    lastAvgResult = { carId, average };
+    saveAvgBtn.style.display = carId ? "block" : "none";
+  });
+
+  saveAvgBtn.addEventListener("click", function(){
+    if (!lastAvgResult || !lastAvgResult.carId) return;
+    const car = cars.find(c => c.id === lastAvgResult.carId);
+    if (car){
+      car.average = lastAvgResult.average;
+      saveCars(cars);
+      renderGarage();
+      saveAvgBtn.textContent = "Saved ✓";
+      setTimeout(() => { saveAvgBtn.textContent = "Save This Average to Selected Car"; }, 1800);
+    }
+  });
+
+  /* ==========================================================
+     TRIP COST CALCULATOR
+     ========================================================== */
+  const tripForm = document.getElementById("tripForm");
+  const tripResultText = document.getElementById("tripResultText");
+  const logTripBtn = document.getElementById("logTripBtn");
+  let lastTripResult = null;
+
+  tripCarSelect.addEventListener("change", function(){
+    const car = cars.find(c => c.id === tripCarSelect.value);
+    if (car && car.average){
+      document.getElementById("tripAverage").value = car.average.toFixed(1);
+    }
+  });
+
+  tripForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    const carId = tripCarSelect.value;
+    const average = parseFloat(document.getElementById("tripAverage").value);
+    const distance = parseFloat(document.getElementById("tripDistance").value);
+    const price = parseFloat(document.getElementById("tripPrice").value);
+
+    if (average <= 0 || distance <= 0 || price <= 0){
+      tripResultText.innerHTML = `<p class="empty-state">Please enter valid positive numbers.</p>`;
+      logTripBtn.style.display = "none";
+      return;
+    }
+
+    const fuelNeeded = distance / average;
+    const cost = fuelNeeded * price;
+
+    let carName = "Manual entry", type = "sedan", fuelType = "petrol";
+    if (carId){
+      const car = cars.find(c => c.id === carId);
+      if (car){ carName = car.name; type = car.type; fuelType = car.fuel; }
+    }
+    const tierInfo = getTier(average, type, fuelType);
+    const unit = fuelType === "cng" ? "kg" : "L";
+
+    tripResultText.innerHTML = `
+      <span class="tier-badge tier-${tierInfo.tier}">${tierInfo.label} average</span>
+      <div class="result-figure">Rs ${cost.toLocaleString(undefined, {maximumFractionDigits:0})}<small> total cost</small></div>
+      <div class="result-row"><span>Fuel needed</span><span>${fuelNeeded.toFixed(2)} ${unit}</span></div>
+      <div class="result-row"><span>Distance</span><span>${distance.toFixed(0)} km</span></div>
+      <div class="result-row"><span>Rate used</span><span>${average.toFixed(1)} km/${unit.toLowerCase()}</span></div>
+      <div class="result-row"><span>Fuel price</span><span>Rs ${price.toFixed(1)} / ${unit}</span></div>
+      <div class="tip-line"><strong>Tip:</strong> ${tipFor(tierInfo.tier, fuelType)}</div>
+    `;
+
+    lastTripResult = { carName, distance, average, fuelNeeded, cost, unit };
+    logTripBtn.style.display = "block";
+  });
+
+  logTripBtn.addEventListener("click", function(){
+    if (!lastTripResult) return;
+    history.unshift({
+      id: uid(),
+      date: new Date().toLocaleDateString(),
+      car: lastTripResult.carName,
+      distance: lastTripResult.distance,
+      average: lastTripResult.average,
+      fuelNeeded: lastTripResult.fuelNeeded,
+      unit: lastTripResult.unit,
+      cost: lastTripResult.cost
+    });
+    saveHistory(history);
+    renderHistory();
+    logTripBtn.textContent = "Logged ✓";
+    setTimeout(() => { logTripBtn.textContent = "Log This Trip to History"; }, 1800);
+  });
+
+  /* ==========================================================
+     COMPARISON MODE
+     ========================================================== */
+  const compareBtn = document.getElementById("compareBtn");
+  const compareResults = document.getElementById("compareResults");
+
+  compareBtn.addEventListener("click", function(){
+    const checked = Array.from(compareCarPicker.querySelectorAll("input:checked")).map(i => i.value);
+    const distance = parseFloat(document.getElementById("compDistance").value);
+    const price = parseFloat(document.getElementById("compPrice").value);
+
+    if (checked.length < 2){
+      compareResults.innerHTML = `<p class="empty-state">Select at least 2 cars to compare.</p>`;
+      return;
+    }
+    if (!(distance > 0) || !(price > 0)){
+      compareResults.innerHTML = `<p class="empty-state">Enter a valid distance and fuel price.</p>`;
+      return;
+    }
+
+    const results = checked.map(id => {
+      const car = cars.find(c => c.id === id);
+      const average = car.average || (BASELINES[car.type] && BASELINES[car.type][car.fuel]) || 12;
+      const fuelNeeded = distance / average;
+      const cost = fuelNeeded * price;
+      return { car, average, fuelNeeded, cost };
+    }).sort((a,b) => a.cost - b.cost);
+
+    const maxCost = Math.max(...results.map(r => r.cost));
+
+    compareResults.innerHTML = results.map((r, idx) => `
+      <div class="compare-row ${idx === 0 ? 'cheapest' : ''}">
+        <div class="compare-row-top">
+          <span class="compare-row-name">${escapeHtml(r.car.name)}${idx === 0 ? '<span class="best-tag">CHEAPEST</span>' : ''}</span>
+          <span class="compare-row-cost">Rs ${r.cost.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+        </div>
+        <div class="compare-bar-track"><div class="compare-bar-fill" style="width:${(r.cost / maxCost * 100).toFixed(0)}%"></div></div>
+        <div class="compare-row-meta">${r.average.toFixed(1)} km/${r.car.fuel === 'cng' ? 'kg' : 'l'} avg${!r.car.average ? ' (estimated)' : ''} · ${r.fuelNeeded.toFixed(2)} ${r.car.fuel === 'cng' ? 'kg' : 'L'} needed</div>
+      </div>
+    `).join("");
+  });
+
+  /* ==========================================================
+     TRIP HISTORY
+     ========================================================== */
+  const historyBody = document.getElementById("historyBody");
+  const historyCount = document.getElementById("historyCount");
+  const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+  const exportCsvBtn = document.getElementById("exportCsvBtn");
+  const exportTxtBtn = document.getElementById("exportTxtBtn");
+
+  function renderHistory(){
+    historyCount.textContent = history.length + (history.length === 1 ? " trip logged" : " trips logged");
+    if (history.length === 0){
+      historyBody.innerHTML = `<tr><td colspan="7" class="empty-state">No trips logged yet.</td></tr>`;
+      return;
+    }
+    historyBody.innerHTML = history.map(h => `
+      <tr data-id="${h.id}">
+        <td>${h.date}</td>
+        <td>${escapeHtml(h.car)}</td>
+        <td>${h.distance.toFixed(0)} km</td>
+        <td>${h.average.toFixed(1)} km/${h.unit.toLowerCase()}</td>
+        <td>${h.fuelNeeded.toFixed(2)} ${h.unit}</td>
+        <td>Rs ${h.cost.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+        <td><button class="history-del" data-id="${h.id}" title="Delete">✕</button></td>
+      </tr>
+    `).join("");
+  }
+
+  historyBody.addEventListener("click", function(e){
+    if (e.target.classList.contains("history-del")){
+      const id = e.target.getAttribute("data-id");
+      history = history.filter(h => h.id !== id);
+      saveHistory(history);
+      renderHistory();
+    }
+  });
+
+  clearHistoryBtn.addEventListener("click", function(){
+    if (history.length === 0) return;
+    if (confirm("Clear all trip history? This can't be undone.")){
+      history = [];
+      saveHistory(history);
+      renderHistory();
+    }
+  });
+
+  function downloadFile(filename, content, mime){
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  exportCsvBtn.addEventListener("click", function(){
+    if (history.length === 0){ alert("No trips to export yet."); return; }
+    const rows = [["Date","Car","Distance (km)","Average","Fuel Needed","Unit","Cost (PKR)"]];
+    history.forEach(h => rows.push([h.date, h.car, h.distance.toFixed(0), h.average.toFixed(2), h.fuelNeeded.toFixed(2), h.unit, h.cost.toFixed(0)]));
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+    downloadFile("tripmeter_history.csv", csv, "text/csv");
+  });
+
+  exportTxtBtn.addEventListener("click", function(){
+    if (history.length === 0){ alert("No trips to export yet."); return; }
+    let txt = "TripMeter — Trip History Export\n" + "=".repeat(40) + "\n\n";
+    history.forEach(h => {
+      txt += `Date:      ${h.date}\n`;
+      txt += `Car:       ${h.car}\n`;
+      txt += `Distance:  ${h.distance.toFixed(0)} km\n`;
+      txt += `Average:   ${h.average.toFixed(2)} km/${h.unit.toLowerCase()}\n`;
+      txt += `Fuel used: ${h.fuelNeeded.toFixed(2)} ${h.unit}\n`;
+      txt += `Cost:      Rs ${h.cost.toFixed(0)}\n`;
+      txt += "-".repeat(40) + "\n";
+    });
+    downloadFile("tripmeter_history.txt", txt, "text/plain");
+  });
+
+  /* ---------- init ---------- */
+  renderGarage();
+  renderHistory();
+
+})();
+
+</script>
+</body>
+</html>
