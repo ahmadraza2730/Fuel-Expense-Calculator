@@ -1,0 +1,21 @@
+{
+  "name": "fuel-expense-calculator",
+  "version": "1.0.0",
+  "description": "Calculate car mileage, trip fuel cost, and get personalized tips",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx serve .",
+    "build": "echo 'No build step required for vanilla HTML project'"
+  },
+  "keywords": [
+    "fuel",
+    "calculator",
+    "mileage",
+    "trip"
+  ],
+  "author": "Muhammad Ahmad",
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/speed-insights": "^1.3.1"
+  }
+}
